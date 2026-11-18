@@ -1,0 +1,12 @@
+output/*
+!output/.gitkeep
+workspace/*
+!workspace/.gitkeep
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.DS_Store
+*.log

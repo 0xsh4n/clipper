@@ -1,0 +1,95 @@
+# ai-video-clipper configuration
+#
+# Precedence: CLI flags > environment / .env > this file > built-in defaults.
+# Every key here is optional - delete anything you do not want to override.
+
+ollama:
+  base_url: http://localhost:11434
+  model: qwen2.5              # ollama pull qwen2.5  (try qwen2.5:14b for better picks)
+  timeout: 300                # seconds per request
+  temperature: 0.2            # low = consistent scoring
+  num_ctx: 8192               # context window handed to the model
+  max_retries: 3              # retries for transport errors and invalid JSON
+  candidates_per_request: 6   # candidates scored per LLM call (lower = smaller prompts)
+
+whisper:
+  model: small                # tiny | base | small | medium | large-v3
+  device: auto                # auto | cuda | cpu
+  compute_type: auto          # auto | float16 | int8_float16 | int8 | float32
+  language: null              # null = auto-detect, or "en", "de", ...
+  beam_size: 5
+  vad_filter: true            # drop silence before transcribing
+  download_root: null         # null = default Hugging Face cache
+
+clip:
+  target_duration: 30.0
+  min_duration: 25.0
+  max_duration: 35.0
+  clips: 1                    # --clips 5 produces the five strongest moments
+  max_candidates: 36          # windows sent to the LLM for scoring
+  min_gap_between_clips: 15.0 # seconds of separation between multiple clips
+  lead_in: 0.25               # padding before the first word
+  tail_out: 0.35              # padding after the last word
+  skip_intro_seconds: 0.0     # ignore the first N seconds when searching
+  skip_outro_seconds: 0.0     # ignore the last N seconds when searching
+
+# Weighted blend of the LLM's seven dimensions (normalised automatically).
+scoring:
+  hook: 0.20
+  interestingness: 0.20
+  information_value: 0.15
+  emotional_impact: 0.10
+  shareability: 0.15
+  clarity: 0.10
+  standalone_context: 0.10
+
+subtitles:
+  enabled: true
+  burn_in: true               # false = write .srt/.vtt only
+  font_name: DejaVu Sans      # must be installed; "Arial" or "Impact" on Windows
+  font_size: 48               # authored for a 1080px short side, scaled per format
+  max_lines: 2
+  max_chars_per_line: 22
+  position: bottom            # bottom | center | top
+  margin_ratio: 0.14          # distance from the edge, as a fraction of height
+  primary_color: "#FFFFFF"
+  outline_color: "#000000"
+  back_color: "#000000"
+  outline: 3.0
+  shadow: 1.0
+  bold: true
+  uppercase: false
+  max_cue_duration: 3.2       # seconds a single caption stays on screen
+
+video:
+  formats: ["16:9", "9:16"]   # or a single value, or "both"
+  landscape_resolution: 1920x1080
+  vertical_resolution: 1080x1920
+  video_codec: libx264        # h264_nvenc for NVIDIA hardware encoding
+  audio_codec: aac
+  crf: 20                     # lower = better quality, bigger file
+  preset: medium              # ultrafast ... veryslow
+  audio_bitrate: 192k
+  fps: null                   # null = keep the source frame rate
+  smart_crop: true            # face-aware 9:16 crop (needs opencv-python)
+  smart_crop_samples: 12      # frames sampled for subject detection
+  loudness_normalize: true    # EBU R128 loudness pass (-16 LUFS)
+
+download:
+  # Capped at 1080p: a 4K source costs a lot of disk and buys nothing here.
+  format: bestvideo[height<=1080]+bestaudio/best[height<=1080]/best
+  max_duration: 21600         # refuse sources longer than 6 hours
+  retries: 3
+  cookies_from_browser: null  # chrome | firefox | edge ... for age-gated videos
+  proxy: null
+
+paths:
+  output_dir: ./output
+  workspace_dir: ./workspace
+
+runtime:
+  keep_temp_files: false      # true keeps audio/frames/clip intermediates
+  use_cache: true             # reuse download, audio, transcript and analysis
+  log_level: INFO             # DEBUG | INFO | WARNING | ERROR
+  ffmpeg_path: ffmpeg         # or an absolute path, e.g. C:\ffmpeg\bin\ffmpeg.exe
+  ffprobe_path: ffprobe

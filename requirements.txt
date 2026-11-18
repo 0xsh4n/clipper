@@ -1,0 +1,16 @@
+# Core pipeline
+yt-dlp>=2024.8.6            # YouTube download (videos, live VODs, shorts)
+faster-whisper>=1.0.3       # speech-to-text with word timestamps (CTranslate2)
+PyYAML>=6.0.1               # config.yaml
+
+# Optional but recommended: face-aware 9:16 cropping.
+# Remove this line to fall back to centre cropping.
+opencv-python-headless>=4.9.0.80
+
+# Tests
+pytest>=8.0.0
+
+# Notes
+# - Ollama is a separate install: https://ollama.com  (then: ollama pull qwen2.5)
+# - FFmpeg + ffprobe must be on PATH (see README).
+# - No cloud LLM SDKs are used; HTTP calls to Ollama go through the stdlib.

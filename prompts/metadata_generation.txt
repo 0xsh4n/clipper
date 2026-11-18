@@ -1,0 +1,35 @@
+You write publishing copy for short-form video. Write the metadata for one
+~{{clip_duration}} second vertical clip taken from a longer video.
+
+SOURCE
+  Video   : {{video_title}}
+  Channel : {{channel}}
+  Why this moment was chosen: {{reason}}
+  Opening line: {{hook}}
+
+CLIP TRANSCRIPT
+{{transcript}}
+
+GUIDELINES
+  - The title must be specific to what is actually said in this clip. No
+    clickbait that the clip does not deliver, no ALL CAPS, no emoji spam.
+  - Front-load the interesting part: the first 40 characters have to work on
+    their own in a crowded feed.
+  - The description is 1-3 sentences: what the viewer is about to hear and why
+    it matters. Plain language. No "in this video" filler.
+  - Hashtags are lowercase, specific to the topic, and useful for discovery.
+    Include one or two broad tags (for example #shorts) and the rest topical.
+  - Write in the same language as the transcript.
+
+OUTPUT
+Return ONLY a JSON object, no prose and no markdown fences:
+
+{
+  "title": "under 90 characters, no surrounding quotes",
+  "description": "1-3 sentences, under 400 characters",
+  "hashtags": ["#shorts", "#topic", "#topic"],
+  "alt_titles": ["one alternative title", "another alternative title"]
+}
+
+Rules: 3-8 hashtags, each starting with # and containing no spaces; 2 or 3
+alt_titles; never invent facts that are not in the transcript.
