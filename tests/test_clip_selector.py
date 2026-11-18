@@ -106,6 +106,21 @@ def test_build_clips_drops_overlapping_selections(transcript, config):
     assert len(clips) == 1
 
 
+def test_build_clips_fills_overlap_from_next_ranked_candidate(transcript, config):
+    config.clip.min_gap_between_clips = 0
+    candidates = [
+        Candidate(id=0, start=5.0, end=38.0, text="first", overall=9.0),
+        Candidate(id=1, start=8.0, end=41.0, text="overlap", overall=8.5),
+        Candidate(id=2, start=43.0, end=75.0, text="next best", overall=8.0),
+    ]
+    clips = ClipSelector(config).build_clips(
+        [{"id": 0, "score": 9.0}, {"id": 1, "score": 8.5}], candidates, transcript,
+        video_duration=transcript.duration, wanted=2,
+    )
+    assert len(clips) == 2
+    assert {clip.candidate_id for clip in clips} == {0, 2}
+
+
 def test_build_clips_raises_when_nothing_is_valid(transcript, config):
     selector = ClipSelector(config)
     with pytest.raises(SelectionError):

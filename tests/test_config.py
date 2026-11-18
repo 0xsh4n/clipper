@@ -14,6 +14,9 @@ def test_defaults():
     assert cfg.ollama.base_url == "http://localhost:11434"
     assert cfg.whisper.model == "small"
     assert cfg.clip.target_duration == 30.0
+    assert cfg.clip.auto_count is True
+    assert cfg.clip.clips == 5
+    assert cfg.video.preset == "veryfast"
     assert cfg.video.formats == ["16:9", "9:16"]
 
 
@@ -61,6 +64,12 @@ def test_env_type_coercion():
     assert cfg.clip.target_duration == 20.0
     assert cfg.subtitles.font_size == 60
     assert cfg.video.formats == ["9:16"]
+
+
+def test_fixed_clip_count_can_be_configured():
+    cfg = load_config(overrides={"clip.auto_count": False, "clip.clips": 7}, environ={})
+    assert cfg.clip.auto_count is False
+    assert cfg.clip.clips == 7
 
 
 @pytest.mark.parametrize(

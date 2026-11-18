@@ -146,11 +146,23 @@ class ClipSelector:
         transcript: Transcript,
         *,
         video_duration: float,
+        wanted: Optional[int] = None,
     ) -> List[Clip]:
         by_id = {candidate.id: candidate for candidate in candidates}
         clips: List[Clip] = []
 
-        for selection in selections:
+        ordered_selections = list(selections)
+        selected_ids = {int(s.get("id", -1)) for s in ordered_selections}
+        if wanted is not None:
+            for candidate in sorted(candidates, key=lambda c: -c.overall):
+                if candidate.id in selected_ids:
+                    continue
+                ordered_selections.append({
+                    "id": candidate.id, "title": candidate.title, "hook": candidate.hook,
+                    "reason": candidate.reason, "score": candidate.overall, "fallback": True,
+                })
+                selected_ids.add(candidate.id)
+        for selection in ordered_selections:
             candidate = by_id.get(int(selection.get("id", -1)))
             if candidate is None:
                 log.warning("Skipping selection for unknown candidate id %r", selection.get("id"))
@@ -166,6 +178,8 @@ class ClipSelector:
                 log.info("Skipping %s - too close to an already selected clip", clip.label)
                 continue
             clips.append(clip)
+            if wanted is not None and len(clips) >= wanted:
+                break
 
         if not clips:
             raise SelectionError(

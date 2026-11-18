@@ -17,7 +17,7 @@ from app import pipeline as pipeline_module
 from app.config import load_config
 from app.downloader import SourceVideo
 from app.media import MediaInfo
-from app.pipeline import Pipeline
+from app.pipeline import Pipeline, automatic_clip_count
 from app.preflight import PreflightReport
 from app.transcript import Transcript
 from app.video_processor import RenderResult
@@ -31,6 +31,11 @@ SCORES = {
     "clarity": 9,
     "standalone_context": 8,
 }
+
+
+@pytest.mark.parametrize("duration,count", [(60, 1), (1800, 3), (3600, 5), (7200, 10), (21600, 30), (86400, 30)])
+def test_automatic_clip_count(duration, count):
+    assert automatic_clip_count(duration) == count
 
 
 class StubLLM:
@@ -193,6 +198,7 @@ def test_full_run_writes_the_documented_output_layout(stub_pipeline):
     assert len(result.clips) == 1
     artifacts = result.clips[0]
     output_dir = artifacts.output_dir
+    assert output_dir.name == "clip_01"
 
     expected = {
         "original_clip.mp4",

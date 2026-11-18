@@ -25,7 +25,8 @@ clip:
   target_duration: 30.0
   min_duration: 25.0
   max_duration: 35.0
-  clips: 1                    # --clips 5 produces the five strongest moments
+  clips: 5                    # fixed count when auto_count is false
+  auto_count: true            # about five per source hour, capped at 30
   max_candidates: 36          # windows sent to the LLM for scoring
   min_gap_between_clips: 15.0 # seconds of separation between multiple clips
   lead_in: 0.25               # padding before the first word
@@ -68,7 +69,7 @@ video:
   video_codec: libx264        # h264_nvenc for NVIDIA hardware encoding
   audio_codec: aac
   crf: 20                     # lower = better quality, bigger file
-  preset: medium              # ultrafast ... veryslow
+  preset: veryfast            # use medium for smaller files at slower encode speed
   audio_bitrate: 192k
   fps: null                   # null = keep the source frame rate
   smart_crop: true            # face-aware 9:16 crop (needs opencv-python)

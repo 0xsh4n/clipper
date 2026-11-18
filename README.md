@@ -24,7 +24,7 @@ YouTube URL
    -> sentence-aware boundary snapping to ~30 s
    -> SRT / VTT / burned-in captions
    -> 1920x1080 landscape + 1080x1920 subject-aware vertical crop
-   -> output/<video>/ with metadata.json and clip_analysis.json
+   -> output/<video>/clip_01/ with metadata.json and clip_analysis.json
 ```
 
 ---
@@ -50,7 +50,8 @@ YouTube URL
 17. [How clip selection works](#17-how-clip-selection-works)
 18. [Project structure](#18-project-structure)
 19. [Tests](#19-tests)
-20. [Extending the pipeline](#20-extending-the-pipeline)
+20. [Local dashboard](#20-local-dashboard)
+21. [Extending the pipeline](#21-extending-the-pipeline)
 
 ---
 
@@ -312,7 +313,7 @@ explanation — clipping needs a complete recording.
 ## 10. Example commands
 
 ```bash
-python main.py URL                          # defaults: 30 s, both formats, 1 clip
+python main.py URL                          # 30 s, both formats, ~5 clips/hour (max 30)
 python main.py URL --duration 30
 python main.py URL --format 9:16            # Shorts / Reels / TikTok only
 python main.py URL --format 16:9            # YouTube landscape only
@@ -326,7 +327,8 @@ python main.py --help
 More:
 
 ```bash
-python main.py URL --clips 3                       # the three strongest moments
+python main.py URL --clips 3                       # exactly three strongest moments
+python main.py URL --beam-size 1                   # faster transcription; may slightly reduce accuracy
 python main.py URL --duration 45                   # window widens to 40-50 s
 python main.py URL --min-duration 20 --max-duration 40
 python main.py URL --skip-intro 120 --skip-outro 60  # ignore intro/outro
@@ -347,20 +349,19 @@ python main.py --check                             # dependency check only
 ```
 output/
 └── How_data_quality_beats_compute-dQw4w9WgXcQ/
-    ├── original_clip.mp4        exact cut, no reframing, no captions
-    ├── youtube_16x9.mp4         1920x1080, captions burned in
-    ├── shorts_9x16.mp4          1080x1920, subject-aware crop, captions
-    ├── subtitles.srt
-    ├── subtitles.vtt
-    ├── transcript.json          full video transcript (segments + words)
-    ├── clip_transcript.json     just the clip, timings rebased to 0
-    ├── clip_analysis.json       why this clip won + every candidate's scores
-    └── metadata.json            title, description, hashtags, timings
+    ├── clip_01/
+    │   ├── original_clip.mp4    exact cut, no reframing, no captions
+    │   ├── youtube_16x9.mp4     1920x1080, captions burned in
+    │   └── metadata.json       title, description, hashtags, timings
+    └── clip_02/                 one numbered directory per clip
 ```
 
-With `--clips 3` each clip gets its own `clip_01/`, `clip_02/`, `clip_03/`
-subdirectory. Existing exports are never overwritten: a repeat run of the same
-video gets a timestamped directory.
+By default the app requests about five clips per source hour (five from one
+hour, ten from two hours), capped at 30. Set `clip.auto_count: false` in
+`config.yaml` to use the fixed `clip.clips` count instead. `--clips N` always
+requests exactly N clips and overrides either mode. Every clip, including a
+single-clip run, gets its own numbered directory. Existing exports are never
+overwritten: a repeat run of the same video gets a timestamped directory.
 
 `metadata.json`:
 
@@ -455,8 +456,9 @@ Expect roughly real-time or slower on CPU with `small`. Use a smaller model
 Set `WHISPER_COMPUTE_TYPE=int8_float16`, or use a smaller model.
 
 **Everything is slow to encode**
-`video.preset: veryfast` and `crf: 23` in `config.yaml` trade a little quality
-for a lot of speed; `video_codec: h264_nvenc` offloads to an NVIDIA GPU.
+The default `video.preset: veryfast` prioritizes speed. Choose
+`video.preset: medium` in `config.yaml` for smaller files at slower encoding
+speed; `video_codec: h264_nvenc` offloads to an NVIDIA GPU.
 
 **Where are the logs?** `workspace/<video_id>/clipper.log`, always at DEBUG level.
 
@@ -472,6 +474,21 @@ Easiest route inside the venv:
 ```bash
 pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
 ```
+
+If CTranslate2 cannot find Python-installed libraries on Linux, set their
+library directories in `LD_LIBRARY_PATH` in the same shell that runs the app:
+
+```bash
+NVIDIA_LIBS="$(python -c 'import site,pathlib; roots=[pathlib.Path(p)/"nvidia" for p in site.getsitepackages()]; print(":".join(str(x) for r in roots for x in (r/"cublas"/"lib",r/"cudnn"/"lib") if x.is_dir()))')"
+export LD_LIBRARY_PATH="$NVIDIA_LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+python main.py URL --device cuda
+```
+
+Run dependency installation and the app from the same activated Python
+environment. The requirements pin `faster-whisper` to 1.0.3 and PyAV below
+19 because that release passes PyAV's removed `metadata_errors` argument.
+After dependency changes, activate the app environment and run
+`python -m pip install -r requirements.txt` there.
 
 Force it explicitly:
 
@@ -499,12 +516,13 @@ Ollama uses your GPU on its own if it can — the app does not need to configure
 
 ## 14. CPU fallback
 
-Everything runs on CPU with no flags. The defaults (`small` Whisper, `qwen2.5`
-7B, `libx264 medium`) are chosen for a normal consumer machine. For a faster
+Everything runs on CPU with `--device cpu`. The defaults (`small` Whisper,
+`qwen2.5` 7B, `libx264 veryfast`) are chosen for a normal consumer machine. For a faster
 CPU run:
 
 ```bash
 python main.py URL --whisper base --model qwen2.5:3b --max-candidates 20
+python main.py URL --device cpu
 ```
 
 ```yaml
@@ -702,7 +720,23 @@ duration fitting and boundary snapping, caption wrapping and ASS styling,
 reframing filter graphs, metadata shape, and a full stubbed pipeline run
 (output layout, caching, multi-clip, cleanup).
 
-## 20. Extending the pipeline
+## 20. Local dashboard
+
+The dashboard is a local Flask page that calls the same pipeline and shares its
+configuration, cache, workspace, and output directories. It allows one active
+job at a time and stores job status history in `workspace/dashboard_jobs.json`.
+Install dependencies in the same Python environment used for the CLI, then run:
+
+```bash
+python -m pip install -r requirements.txt
+python -m app.dashboard
+```
+
+Open <http://127.0.0.1:5000>. The dashboard does not publish or upload clips.
+It binds to localhost by default; use `--config`, `--env`, `--host`, or `--port`
+to select local settings or a different local port.
+
+## 21. Extending the pipeline
 
 Each stage is a class with a narrow interface, so these drop in without
 reworking the pipeline:

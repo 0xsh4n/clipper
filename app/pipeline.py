@@ -14,6 +14,7 @@ import hashlib
 import json
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -46,6 +47,12 @@ from .video_processor import RenderResult, VideoProcessor
 log = get_logger("pipeline")
 
 STAGE_DIRS = ("source", "audio", "transcript", "analysis", "clips", "subtitles", "final")
+
+
+def automatic_clip_count(duration_seconds: float) -> int:
+    """Return roughly five clips per source hour, with a hard cap of 30."""
+
+    return min(30, max(1, int(float(duration_seconds) / 3600.0 * 5 + 0.5)))
 
 
 @dataclass
@@ -99,10 +106,10 @@ class Pipeline:
         self.metadata = MetadataGenerator(config, analyzer=self.analyzer)
 
     # -- entry point ------------------------------------------------------ #
-    def run(self, url: str, *, clips: int = 1) -> JobResult:
+    def run(self, url: str, *, clips: Optional[int] = None) -> JobResult:
         started = time.time()
         url = validate_youtube_url(url)
-        wanted_clips = max(1, int(clips))
+        requested_clips = max(1, int(clips)) if clips is not None else None
         log.info("Starting video processing")
 
         report = run_preflight(self.config, require_llm=not self.skip_llm_check)
@@ -116,6 +123,11 @@ class Pipeline:
 
         # 1-2. download + audio
         source = self.downloader.download(url, workspace, use_cache=use_cache)
+        wanted_clips = requested_clips if requested_clips is not None else (
+            automatic_clip_count(source.duration) if self.config.clip.auto_count
+            else max(1, int(self.config.clip.clips))
+        )
+        log.info("Targeting %d clips", wanted_clips)
         audio_path = self.transcriber.extract_audio(source.path, workspace, use_cache=use_cache)
 
         # 3. transcription
@@ -134,7 +146,7 @@ class Pipeline:
             candidates, transcript, source, workspace, wanted=wanted_clips, use_cache=use_cache
         )
         built = self.selector.build_clips(
-            selections, candidates, transcript, video_duration=source.duration
+            selections, candidates, transcript, video_duration=source.duration, wanted=wanted_clips
         )
         for clip in built:
             log.info(
@@ -148,19 +160,19 @@ class Pipeline:
         # 7-10. render each clip
         output_root = self._output_root(source)
         artifacts: List[ClipArtifacts] = []
-        for clip in built:
-            artifacts.append(
-                self._produce_clip(
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="clip-render") as executor:
+            futures = [executor.submit(
+                self._produce_clip,
                     clip=clip,
                     source=source,
                     transcript=transcript,
                     candidates=candidates,
                     workspace=workspace,
                     output_root=output_root,
-                    multiple=len(built) > 1,
+                    multiple=True,
                     selection=next((s for s in selections if s.get("id") == clip.candidate_id), None),
-                )
-            )
+                ) for clip in built]
+            artifacts = [future.result() for future in futures]
 
         self._cleanup(workspace)
         elapsed = time.time() - started
@@ -194,6 +206,8 @@ class Pipeline:
             stage="candidates",
             extra={
                 "whisper": self.config.whisper.model,
+                "beam_size": self.config.whisper.beam_size,
+                "language": self.config.whisper.language,
                 "segments": len(transcript),
                 "min": self.config.clip.min_duration,
                 "max": self.config.clip.max_duration,
@@ -318,7 +332,7 @@ class Pipeline:
         subject_center, crop_strategy = 0.5, "center"
         if "9:16" in self.config.video.formats:
             subject_center, crop_strategy = self.video.detect_subject_center(
-                raw_clip, workspace, info=clip_info
+                raw_clip, workspace / "frames" / f"clip_{clip.index:02d}", info=clip_info
             )
 
         # 10. render every requested format

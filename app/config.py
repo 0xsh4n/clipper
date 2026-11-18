@@ -44,7 +44,8 @@ DEFAULTS: Dict[str, Any] = {
         "target_duration": 30.0,
         "min_duration": 25.0,
         "max_duration": 35.0,
-        "clips": 1,
+        "clips": 5,
+        "auto_count": True,
         "max_candidates": 36,
         "min_gap_between_clips": 15.0,
         "lead_in": 0.25,
@@ -86,7 +87,7 @@ DEFAULTS: Dict[str, Any] = {
         "video_codec": "libx264",
         "audio_codec": "aac",
         "crf": 20,
-        "preset": "medium",
+        "preset": "veryfast",
         "audio_bitrate": "192k",
         "fps": None,               # None -> keep source fps
         "smart_crop": True,
@@ -128,6 +129,7 @@ ENV_MAP: Dict[str, str] = {
     "MIN_CLIP_DURATION": "clip.min_duration",
     "MAX_CLIP_DURATION": "clip.max_duration",
     "CLIPS_PER_VIDEO": "clip.clips",
+    "AUTO_CLIP_COUNT": "clip.auto_count",
     "OUTPUT_DIR": "paths.output_dir",
     "WORKSPACE_DIR": "paths.workspace_dir",
     "VIDEO_FORMATS": "video.formats",
@@ -184,7 +186,8 @@ class ClipConfig:
     target_duration: float = 30.0
     min_duration: float = 25.0
     max_duration: float = 35.0
-    clips: int = 1
+    clips: int = 5
+    auto_count: bool = True
     max_candidates: int = 36
     min_gap_between_clips: float = 15.0
     lead_in: float = 0.25
@@ -235,7 +238,7 @@ class VideoConfig:
     video_codec: str = "libx264"
     audio_codec: str = "aac"
     crf: int = 20
-    preset: str = "medium"
+    preset: str = "veryfast"
     audio_bitrate: str = "192k"
     fps: Optional[float] = None
     smart_crop: bool = True
@@ -457,6 +460,8 @@ def _validate(data: Dict[str, Any]) -> None:
         )
     if clip["clips"] < 1:
         raise ConfigError("clip.clips must be >= 1.", "Use --clips 1 or higher.")
+    if int(data["whisper"]["beam_size"]) < 1:
+        raise ConfigError("whisper.beam_size must be >= 1.")
 
     whisper_model = str(data["whisper"]["model"])
     if whisper_model not in VALID_WHISPER_MODELS and not Path(whisper_model).exists():

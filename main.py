@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     clip_group.add_argument("--duration", type=float, metavar="SEC", help="target clip duration (default 30)")
     clip_group.add_argument("--min-duration", type=float, metavar="SEC", help="minimum clip duration (default 25)")
     clip_group.add_argument("--max-duration", type=float, metavar="SEC", help="maximum clip duration (default 35)")
-    clip_group.add_argument("--clips", type=int, metavar="N", help="how many clips to produce (default 1)")
+    clip_group.add_argument("--clips", type=int, metavar="N", help="exact number of clips (overrides automatic count)")
     clip_group.add_argument(
         "--max-candidates", type=int, metavar="N",
         help="how many candidate windows to score with the LLM (default 36)",
@@ -92,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Whisper model: tiny, base, small, medium, large-v3 (default small)",
     )
     model_group.add_argument("--device", choices=("auto", "cpu", "cuda"), help="Whisper device (default auto)")
+    model_group.add_argument("--beam-size", type=int, metavar="N", help="Whisper beam size (1 is faster, may slightly reduce accuracy)")
     model_group.add_argument("--language", metavar="CODE", help="force a transcription language, e.g. en")
 
     misc = parser.add_argument_group("misc")
@@ -124,6 +125,7 @@ def overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         "ollama.base_url": args.ollama_url,
         "whisper.model": args.whisper,
         "whisper.device": args.device,
+        "whisper.beam_size": args.beam_size,
         "whisper.language": args.language,
         "subtitles.font_size": args.font_size,
         "subtitles.position": args.subtitle_position,
@@ -152,8 +154,8 @@ def overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     return {k: v for k, v in overrides.items() if v is not None}
 
 
-def _auto_clip_count(config: AppConfig, args: argparse.Namespace) -> int:
-    return max(1, int(args.clips or config.clip.clips))
+def _auto_clip_count(config: AppConfig, args: argparse.Namespace) -> Optional[int]:
+    return max(1, int(args.clips)) if args.clips is not None else None
 
 
 def summarise(result: JobResult) -> str:

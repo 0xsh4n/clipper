@@ -8,6 +8,7 @@ crashed render never costs a re-transcription.
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -86,9 +87,10 @@ class Transcriber:
         transcript_dir = Path(workspace) / "transcript"
         transcript_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = transcript_dir / "transcript.json"
+        settings_path = transcript_dir / "transcription_settings.json"
 
         if use_cache and transcript_path.is_file():
-            cached = self._load_cached(transcript_path)
+            cached = self._load_cached(transcript_path, settings_path=settings_path)
             if cached is not None:
                 log.info(
                     "Reusing cached transcript (%d segments, %d words)",
@@ -106,6 +108,11 @@ class Transcriber:
                 "or try a larger Whisper model (--whisper medium).",
             )
         transcript.save(transcript_path)
+        settings_path.write_text(json.dumps({
+            "model": self.config.whisper.model,
+            "language": self.config.whisper.language,
+            "beam_size": int(self.config.whisper.beam_size),
+        }, sort_keys=True), encoding="utf-8")
         log.info(
             "Transcript generated: %d segments, %d words, language=%s",
             len(transcript),
@@ -230,7 +237,7 @@ class Transcriber:
             source_path=str(audio_path),
         )
 
-    def _load_cached(self, path: Path) -> Optional[Transcript]:
+    def _load_cached(self, path: Path, *, settings_path: Optional[Path] = None) -> Optional[Transcript]:
         try:
             transcript = Transcript.load(path)
         except Exception as exc:
@@ -245,4 +252,18 @@ class Transcriber:
                 self.config.whisper.model,
             )
             return None
+        if settings_path is not None:
+            try:
+                settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                log.info("Cached transcript has no settings marker - re-transcribing")
+                return None
+            expected = {
+                "model": self.config.whisper.model,
+                "language": self.config.whisper.language,
+                "beam_size": int(self.config.whisper.beam_size),
+            }
+            if settings != expected:
+                log.info("Whisper settings changed - re-transcribing cached audio")
+                return None
         return transcript
