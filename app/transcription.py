@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import json
+import gc
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -64,6 +65,17 @@ class Transcriber:
         self._model: Any = None
         self._device: str = ""
         self._compute_type: str = ""
+
+    def unload_model(self) -> None:
+        """Release Whisper's model memory before the LLM stage uses the GPU."""
+
+        if self._model is None:
+            return
+        self._model = None
+        self._device = ""
+        self._compute_type = ""
+        gc.collect()
+        log.info("Released Whisper model memory")
 
     # -- public API ------------------------------------------------------- #
     def extract_audio(self, source_path: Path, workspace: Path, *, use_cache: bool = True) -> Path:

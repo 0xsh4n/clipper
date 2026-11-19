@@ -24,19 +24,19 @@ from .utils import parse_bool
 DEFAULTS: Dict[str, Any] = {
     "ollama": {
         "base_url": "http://localhost:11434",
-        "model": "qwen2.5",
+        "model": "qwen3:4b",
         "timeout": 300,
         "temperature": 0.2,
         "num_ctx": 8192,
         "max_retries": 3,
-        "candidates_per_request": 6,
+        "candidates_per_request": 12,
     },
     "whisper": {
-        "model": "small",
+        "model": "base",
         "device": "auto",          # auto | cuda | cpu
         "compute_type": "auto",    # auto | float16 | int8_float16 | int8 | float32
         "language": None,          # None -> auto detect
-        "beam_size": 5,
+        "beam_size": 1,
         "vad_filter": True,
         "download_root": None,
     },
@@ -54,12 +54,12 @@ DEFAULTS: Dict[str, Any] = {
         "skip_outro_seconds": 0.0,
     },
     "scoring": {
-        "hook": 0.20,
-        "interestingness": 0.20,
-        "information_value": 0.15,
-        "emotional_impact": 0.10,
-        "shareability": 0.15,
-        "clarity": 0.10,
+        "hook": 0.23,
+        "interestingness": 0.21,
+        "information_value": 0.08,
+        "emotional_impact": 0.16,
+        "shareability": 0.16,
+        "clarity": 0.06,
         "standalone_context": 0.10,
     },
     "subtitles": {
@@ -162,21 +162,21 @@ VALID_WHISPER_MODELS = (
 @dataclass
 class OllamaConfig:
     base_url: str = "http://localhost:11434"
-    model: str = "qwen2.5"
+    model: str = "qwen3:4b"
     timeout: int = 300
     temperature: float = 0.2
     num_ctx: int = 8192
     max_retries: int = 3
-    candidates_per_request: int = 6
+    candidates_per_request: int = 12
 
 
 @dataclass
 class WhisperConfig:
-    model: str = "small"
+    model: str = "base"
     device: str = "auto"
     compute_type: str = "auto"
     language: Optional[str] = None
-    beam_size: int = 5
+    beam_size: int = 1
     vad_filter: bool = True
     download_root: Optional[str] = None
 
@@ -198,12 +198,12 @@ class ClipConfig:
 
 @dataclass
 class ScoringWeights:
-    hook: float = 0.20
-    interestingness: float = 0.20
-    information_value: float = 0.15
-    emotional_impact: float = 0.10
-    shareability: float = 0.15
-    clarity: float = 0.10
+    hook: float = 0.23
+    interestingness: float = 0.21
+    information_value: float = 0.08
+    emotional_impact: float = 0.16
+    shareability: float = 0.16
+    clarity: float = 0.06
     standalone_context: float = 0.10
 
     def as_dict(self) -> Dict[str, float]:
@@ -494,7 +494,7 @@ def _validate(data: Dict[str, Any]) -> None:
             "Default: http://localhost:11434",
         )
     if not str(data["ollama"]["model"]).strip():
-        raise ConfigError("ollama.model must not be empty.", "Try OLLAMA_MODEL=qwen2.5")
+        raise ConfigError("ollama.model must not be empty.", "Try OLLAMA_MODEL=qwen3:4b")
 
 
 def load_config(

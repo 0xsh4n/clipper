@@ -35,7 +35,7 @@ YouTube URL
 2. [Python version](#2-python-version)
 3. [FFmpeg installation](#3-ffmpeg-installation)
 4. [Ollama installation](#4-ollama-installation)
-5. [Qwen 2.5 installation](#5-qwen-25-installation)
+5. [Ollama model setup](#5-ollama-model-setup)
 6. [Whisper model setup](#6-whisper-model-setup)
 7. [Installation](#7-installation)
 8. [Configuration](#8-configuration)
@@ -62,7 +62,9 @@ YouTube URL
 | Python | 3.10 – 3.12 | 3.13+ may lack `ctranslate2` wheels, see [Troubleshooting](#12-troubleshooting) |
 | FFmpeg + FFprobe | any recent build | must be on `PATH` (or set `FFMPEG_PATH`) |
 | Ollama | 0.1.30+ | running locally (`ollama serve`) |
-| Qwen 2.5 | `ollama pull qwen2.5` | ~4.7 GB for the 7B default |
+| Qwen 2.5 3B | already installed | ~1.9 GB; fast default on this laptop |
+| Qwen 3 4B | `ollama pull qwen3:4b` | ~2.5 GB; stronger clip reasoning default |
+| Qwen 2.5 3B | `ollama pull qwen2.5:3b` | ~1.9 GB; smaller fallback |
 | RAM | 8 GB | 16 GB comfortable |
 | Disk | ~5 GB + video size | models + workspace |
 | GPU | optional | NVIDIA CUDA speeds up transcription a lot |
@@ -151,13 +153,19 @@ Verify:
 curl http://localhost:11434/api/version
 ```
 
-## 5. Qwen 2.5 installation
+## 5. Ollama model setup
 
 ```bash
-ollama pull qwen2.5
+ollama pull qwen3:4b
 ```
 
-Other sizes work and are often better at picking clips:
+For a smaller fallback model, use Qwen 2.5 3B (about 1.9 GB):
+
+```bash
+ollama pull qwen2.5:3b
+```
+
+Other sizes work too:
 
 ```bash
 ollama pull qwen2.5:14b      # noticeably better judgement, ~9 GB
@@ -178,8 +186,8 @@ Nothing to download by hand: `faster-whisper` fetches the model on first use
 | Model | Size | Speed (CPU) | Quality | Use when |
 |---|---|---|---|---|
 | `tiny` | 75 MB | fastest | low | smoke tests |
-| `base` | 145 MB | fast | fair | long videos on a slow CPU |
-| `small` | 480 MB | moderate | good | **default**, good trade-off |
+| `base` | 145 MB | fastest practical | fair | **default**, quick runs on modest hardware |
+| `small` | 480 MB | moderate | good | when transcript accuracy matters more |
 | `medium` | 1.5 GB | slow on CPU | very good | GPU, or quality matters |
 | `large-v3` | 3 GB | GPU recommended | best | accents, noisy audio |
 
@@ -216,9 +224,9 @@ python main.py --check
 All dependencies are ready:
   ffmpeg        : ffmpeg version 6.1.1 ...
   yt-dlp        : 2024.08.06
-  faster-whisper: installed (model small)
+  faster-whisper: installed (model base)
   ollama        : http://localhost:11434 (version 0.3.9)
-  llm model     : qwen2.5
+  llm model     : qwen3:4b
 ```
 
 `opencv-python-headless` in `requirements.txt` is optional: it powers the
@@ -286,16 +294,16 @@ Typical log:
 ```
 [INFO] Starting video processing
 [INFO] FFmpeg ready: ffmpeg version 6.1.1
-[INFO] Ollama ready at http://localhost:11434 (version 0.3.9, model qwen2.5)
+[INFO] Ollama ready at http://localhost:11434 (version 0.3.9, model qwen3:4b)
 [INFO] Downloading video
 [INFO] Video duration: 01:42:18
 [INFO] Extracting audio
-[INFO] Transcribing (model: small)
+[INFO] Transcribing (model: base)
 [INFO] Transcript generated: 1483 segments, 19204 words, language=en
 [INFO] Generating candidate clips
 [INFO] Shortlisted 36 candidates spanning 02:15 - 1:38:40
-[INFO] Analyzing 36 candidates with qwen2.5 (6 batches)
-[INFO] Selecting the final clip with qwen2.5
+[INFO] Analyzing 36 candidates with qwen3:4b (3 batches)
+[INFO] Selecting the final clip with qwen3:4b
 [INFO] Selected clip: 13:32 - 14:02 (29.8s, score 9.1) - The GPU myth
 [INFO] Extracting clip segment (29.80s)
 [INFO] Generating subtitles (11 cues)
@@ -415,9 +423,8 @@ Install it ([section 3](#3-ffmpeg-installation)) and reopen the terminal, or set
 Run `ollama serve`. If it listens elsewhere, set `OLLAMA_BASE_URL`. On Windows
 check the Ollama tray icon is running.
 
-**`Ollama model 'qwen2.5' is not installed`**
-`ollama pull qwen2.5`. `ollama list` shows what you have; the app matches
-`qwen2.5` against `qwen2.5:latest`, `qwen2.5:7b` and so on.
+**Ollama says the selected model is not installed**
+Run `ollama pull <model-name>` for the chosen model. `ollama list` shows what you have.
 
 **`pip install faster-whisper` fails / no `ctranslate2` wheel**
 You are on a too-new Python. Use 3.10–3.12 (`py -3.12 -m venv .venv`).
@@ -516,8 +523,8 @@ Ollama uses your GPU on its own if it can — the app does not need to configure
 
 ## 14. CPU fallback
 
-Everything runs on CPU with `--device cpu`. The defaults (`small` Whisper,
-`qwen2.5` 7B, `libx264 veryfast`) are chosen for a normal consumer machine. For a faster
+Everything runs on CPU with `--device cpu`. The defaults (`base` Whisper,
+`qwen3:4b`, `libx264 veryfast`) are chosen for a normal consumer machine. For a faster
 CPU run:
 
 ```bash
@@ -553,7 +560,7 @@ ollama:
   model: qwen2.5:14b
   temperature: 0.2
   num_ctx: 8192
-  candidates_per_request: 6   # lower this for small-context models
+  candidates_per_request: 12  # use 6 for small-context models
 ```
 
 To use a different machine on your network:
@@ -570,12 +577,12 @@ How the scoring is weighted is configuration, not code:
 
 ```yaml
 scoring:
-  hook: 0.20
-  interestingness: 0.20
-  information_value: 0.15
-  emotional_impact: 0.10
-  shareability: 0.15
-  clarity: 0.10
+  hook: 0.23
+  interestingness: 0.21
+  information_value: 0.08
+  emotional_impact: 0.16
+  shareability: 0.16
+  clarity: 0.06
   standalone_context: 0.10
 ```
 
@@ -585,7 +592,7 @@ The prompts themselves live in `prompts/*.txt` — plain text, edit freely:
 |---|---|
 | `prompts/candidate_analysis.txt` | scores every candidate on the seven dimensions |
 | `prompts/final_selection.txt` | compares finalists and picks the winner |
-| `prompts/metadata_generation.txt` | title, description, hashtags |
+| `prompts/metadata_generation.txt` | title, post caption, hashtags |
 
 ## 16. How to change video formats
 
@@ -638,10 +645,12 @@ questions and contrarian phrasing. The best ~36, spread across the runtime, go
 forward.
 
 **Stage 2 — Qwen scoring (`prompts/candidate_analysis.txt`)**
-Candidates are sent in small batches (6 by default) and scored 0–10 on `hook`,
+Candidates are sent in batches of 12 by default and scored 0–10 on `hook`,
 `interestingness`, `information_value`, `emotional_impact`, `standalone_context`,
-`shareability` and `clarity`. The weighted blend above produces one overall
-score per candidate.
+`shareability` and `clarity`. The prompt specifically judges stop-scroll
+strength, retention through a payoff, standalone clarity and a real reason to
+share. The weighted blend above puts extra weight on those viewer responses.
+The resulting score is an editorial ranking, not a promise of virality.
 
 **Stage 3 — final selection (`prompts/final_selection.txt`)**
 The top finalists go back to the model with their transcripts and scores; it

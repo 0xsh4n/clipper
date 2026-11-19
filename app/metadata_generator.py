@@ -42,7 +42,7 @@ class MetadataGenerator:
         output_dir: Path,
         transcript_language: str = "",
     ) -> Dict[str, Any]:
-        publishing = {"title": clip.title, "description": "", "hashtags": [], "alt_titles": []}
+        publishing = {"title": clip.title, "caption": "", "description": "", "hashtags": [], "alt_titles": []}
         if self.analyzer is not None:
             log.info("Generating title, description and hashtags")
             publishing = self.analyzer.generate_publishing_metadata(
@@ -57,7 +57,8 @@ class MetadataGenerator:
             )
 
         title = publishing.get("title") or clip.title or source.title
-        description = publishing.get("description") or clip.hook or clip.text[:300]
+        caption = publishing.get("caption") or publishing.get("description") or clip.hook or clip.text[:300]
+        description = publishing.get("description") or caption
         hashtags: List[str] = list(publishing.get("hashtags") or [])
 
         metadata: Dict[str, Any] = {
@@ -74,6 +75,7 @@ class MetadataGenerator:
             "clip_duration": round(float(clip.duration), 2),
             "clip_timecode": clip.label,
             "title": title,
+            "caption": caption,
             "description": description,
             "hashtags": hashtags,
             "alt_titles": list(publishing.get("alt_titles") or []),

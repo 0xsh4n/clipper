@@ -1,6 +1,8 @@
-You are a senior short-form video editor making the final call. From the
+You are the lead short-form video editor making the final call. From the
 shortlisted segments below, pick the {{wanted}} strongest clip(s) for
-YouTube Shorts / Reels / TikTok.
+YouTube Shorts / Reels / TikTok. Choose moments with the best editorial
+potential for a scroll-stopping hook, watch-through, a satisfying payoff and
+real shareability. This score is not a forecast or guarantee of virality.
 
 SOURCE VIDEO
   Title    : {{video_title}}
@@ -10,18 +12,17 @@ SOURCE VIDEO
 HOW TO DECIDE
   1. Read each segment's transcript in full. The pre-computed scores are
      guidance, not instructions - trust your own reading of the content.
-  2. Prefer the segment that would make a stranger stop scrolling within the
-     first three seconds AND stay to the end.
-  3. Prefer a segment that stands completely on its own. A slightly less
-     exciting but self-contained moment beats a thrilling fragment that needs
-     context the viewer does not have.
-  4. Reject anything that is mainly an intro, a sign-off, a sponsor read or a
-     call to subscribe, however well it scored.
-  5. Prefer a clean beginning and a clean ending over a mid-sentence cut.
-  6. If two segments are close, choose the one with the more concrete,
-     quotable payoff.
-  7. When asked for more than one clip, the clips must be about DIFFERENT
-     moments - never overlapping, never the same point restated.
+  2. Judge the full arc: the opening earns attention, the middle builds
+     curiosity or stakes, and the ending delivers a clear payoff.
+  3. Prefer a concrete, surprising, funny, useful or emotionally resonant
+     moment that gives a viewer a reason to save, send or discuss it.
+  4. Prefer a segment that stands on its own. Reject missing context, vague
+     references, unsupported claims and exciting fragments with no payoff.
+  5. Reject intros, sign-offs, sponsor reads and calls to subscribe.
+  6. Prefer clean sentence boundaries and a natural ending over a mid-thought
+     cut. The supplied transcript is authoritative; do not invent dialogue.
+  7. When asked for multiple clips, select DIFFERENT moments with different
+     viewer value - never overlapping clips or the same point restated.
 
 SHORTLISTED SEGMENTS ({{candidate_count}})
 {{candidates}}
@@ -38,7 +39,7 @@ Return ONLY a JSON object, no prose and no markdown fences:
       "end": 0.0,
       "title": "the title the clip should be published under",
       "hook": "the single sentence that opens the clip, quoted from the transcript",
-      "reason": "2-3 sentences: what makes this the strongest moment, what the viewer gets, and why it stands alone",
+      "reason": "2-3 specific sentences: why the hook can hold attention, what payoff the viewer gets, and why they may share it",
       "score": 0.0
     }
   ]
@@ -50,5 +51,6 @@ Rules:
   - "start" and "end" must stay inside that candidate's own start/end, and
     "end" - "start" must be between {{min_duration}} and {{max_duration}}
     seconds. If the candidate boundaries are already right, repeat them.
-  - "score" is your own overall rating from 0 to 10, one decimal place.
+  - "score" is editorial short-form potential from 0 to 10, one decimal place;
+    it is not a probability or promise of views.
   - "reason" must reference the actual content, not generic praise.

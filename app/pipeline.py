@@ -131,12 +131,17 @@ class Pipeline:
         audio_path = self.transcriber.extract_audio(source.path, workspace, use_cache=use_cache)
 
         # 3. transcription
-        transcript = self.transcriber.transcribe(
-            audio_path,
-            workspace,
-            use_cache=use_cache,
-            expected_duration=source.duration,
-        )
+        try:
+            transcript = self.transcriber.transcribe(
+                audio_path,
+                workspace,
+                use_cache=use_cache,
+                expected_duration=source.duration,
+            )
+        finally:
+            # Whisper and Ollama share the laptop's 4 GB GPU. Free Whisper's
+            # weights before scoring and clip rendering begin.
+            self.transcriber.unload_model()
 
         # 4-5. candidates + LLM scoring
         candidates = self._analyze_candidates(transcript, source, workspace, use_cache=use_cache)
@@ -205,6 +210,7 @@ class Pipeline:
         fingerprint = self._fingerprint(
             stage="candidates",
             extra={
+                "prompt_version": 2,
                 "whisper": self.config.whisper.model,
                 "beam_size": self.config.whisper.beam_size,
                 "language": self.config.whisper.language,
@@ -262,6 +268,7 @@ class Pipeline:
         fingerprint = self._fingerprint(
             stage="selection",
             extra={
+                "prompt_version": 2,
                 "wanted": wanted,
                 "llm": self.config.ollama.model,
                 "candidates": [c.id for c in candidates],

@@ -1,4 +1,4 @@
-"""Ollama / Qwen 2.5 integration.
+"""Ollama local LLM integration.
 
 Two independent pieces live here:
 
@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections import Counter
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -676,14 +677,16 @@ class LLMAnalyzer:
 
         hashtags = _clean_hashtags(data.get("hashtags"))
         title = _clean_text(data.get("title"), 100)
-        description = _clean_text(data.get("description"), 1200)
-        if not title or not description:
-            fallback = self._fallback_metadata(clip_text, context)
-            title = title or fallback["title"]
-            description = description or fallback["description"]
-            hashtags = hashtags or fallback["hashtags"]
+        caption = _clean_text(data.get("caption") or data.get("description"), 400)
+        description = caption
+        fallback = self._fallback_metadata(clip_text, context)
+        title = title or fallback["title"]
+        description = description or fallback["description"]
+        caption = caption or description
+        hashtags = hashtags or fallback["hashtags"]
         return {
             "title": title,
+            "caption": caption,
             "description": description,
             "hashtags": hashtags,
             "alt_titles": [t for t in (_clean_text(x, 100) for x in (data.get("alt_titles") or [])) if t][:5],
@@ -695,10 +698,25 @@ class LLMAnalyzer:
         first_sentence = re.split(r"(?<=[.!?])\s+", clip_text.strip())[0] if clip_text.strip() else ""
         title = (hook or first_sentence or str(context.get("title") or "Clip"))[:95].strip()
         description = (clip_text.strip()[:400] or title)
+        stopwords = {
+            "about", "after", "again", "also", "because", "been", "being", "could", "does",
+            "doing", "from", "have", "here", "into", "just", "like", "make", "more", "most",
+            "much", "only", "other", "over", "really", "said", "some", "such", "than", "that",
+            "them", "then", "there", "these", "they", "thing", "this", "those", "through", "very",
+            "want", "what", "when", "where", "which", "while", "will", "with", "would", "your",
+        }
+        terms = [
+            word for word, _ in Counter(
+                word for word in re.findall(r"[^\W_]{4,}", clip_text.lower(), flags=re.UNICODE)
+                if word not in stopwords
+            ).most_common(8)
+        ]
+        hashtags = _clean_hashtags(["#shorts", *(f"#{word}" for word in terms[:4])])
         return {
             "title": title,
+            "caption": description,
             "description": description,
-            "hashtags": ["#shorts", "#clips", "#viral"],
+            "hashtags": hashtags or ["#shorts"],
             "alt_titles": [],
         }
 

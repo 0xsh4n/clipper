@@ -37,7 +37,7 @@ examples:
   python main.py --check                      # verify ffmpeg / ollama / models only
 
 requirements:
-  ollama serve            (and: ollama pull qwen2.5)
+  ollama serve            (and: ollama pull qwen3:4b)
   ffmpeg + ffprobe on PATH
 """
 
@@ -85,11 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
     output_group.add_argument("--no-smart-crop", action="store_true", help="always centre-crop the 9:16 version")
 
     model_group = parser.add_argument_group("models")
-    model_group.add_argument("--model", metavar="NAME", help="Ollama model (default qwen2.5)")
+    model_group.add_argument("--model", metavar="NAME", help="Ollama model (default qwen3:4b)")
     model_group.add_argument("--ollama-url", metavar="URL", help="Ollama base URL (default http://localhost:11434)")
     model_group.add_argument(
         "--whisper", metavar="NAME",
-        help="Whisper model: tiny, base, small, medium, large-v3 (default small)",
+        help="Whisper model: tiny, base, small, medium, large-v3 (default base)",
     )
     model_group.add_argument("--device", choices=("auto", "cpu", "cuda"), help="Whisper device (default auto)")
     model_group.add_argument("--beam-size", type=int, metavar="N", help="Whisper beam size (1 is faster, may slightly reduce accuracy)")

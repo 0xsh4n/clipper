@@ -15,10 +15,12 @@ GUIDELINES
     clickbait that the clip does not deliver, no ALL CAPS, no emoji spam.
   - Front-load the interesting part: the first 40 characters have to work on
     their own in a crowded feed.
-  - The description is 1-3 sentences: what the viewer is about to hear and why
-    it matters. Plain language. No "in this video" filler.
-  - Hashtags are lowercase, specific to the topic, and useful for discovery.
-    Include one or two broad tags (for example #shorts) and the rest topical.
+  - Write a post-ready caption in 1-3 natural sentences. Lead with the clip's
+    specific takeaway or question. Invite a genuine comment only when it fits;
+    avoid generic "follow for more" filler.
+  - Hashtags should be lowercase, directly relevant and useful for discovery.
+    Use 3-6 tags: at most one broad tag (such as #shorts), then specific topic,
+    field or audience tags. No unrelated trend tags or repeated synonyms.
   - Write in the same language as the transcript.
 
 OUTPUT
@@ -26,8 +28,9 @@ Return ONLY a JSON object, no prose and no markdown fences:
 
 {
   "title": "under 90 characters, no surrounding quotes",
-  "description": "1-3 sentences, under 400 characters",
-  "hashtags": ["#shorts", "#topic", "#topic"],
+  "caption": "post-ready caption, 1-3 sentences and under 400 characters",
+  "description": "same text as caption for compatibility",
+  "hashtags": ["#shorts", "#specifictopic", "#audience"],
   "alt_titles": ["one alternative title", "another alternative title"]
 }
 

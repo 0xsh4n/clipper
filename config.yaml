@@ -5,19 +5,19 @@
 
 ollama:
   base_url: http://localhost:11434
-  model: qwen2.5              # ollama pull qwen2.5  (try qwen2.5:14b for better picks)
+  model: qwen3:4b             # stronger clip reasoning; ollama pull qwen3:4b
   timeout: 300                # seconds per request
   temperature: 0.2            # low = consistent scoring
   num_ctx: 8192               # context window handed to the model
   max_retries: 3              # retries for transport errors and invalid JSON
-  candidates_per_request: 6   # candidates scored per LLM call (lower = smaller prompts)
+  candidates_per_request: 12  # fewer Ollama round trips; lower to 6 for limited context
 
 whisper:
-  model: small                # tiny | base | small | medium | large-v3
+  model: base                 # tiny | base | small | medium | large-v3 (base is faster on modest GPUs)
   device: auto                # auto | cuda | cpu
   compute_type: auto          # auto | float16 | int8_float16 | int8 | float32
   language: null              # null = auto-detect, or "en", "de", ...
-  beam_size: 5
+  beam_size: 1                # fastest decoding; use 5 for a little more accuracy
   vad_filter: true            # drop silence before transcribing
   download_root: null         # null = default Hugging Face cache
 
@@ -36,12 +36,12 @@ clip:
 
 # Weighted blend of the LLM's seven dimensions (normalised automatically).
 scoring:
-  hook: 0.20
-  interestingness: 0.20
-  information_value: 0.15
-  emotional_impact: 0.10
-  shareability: 0.15
-  clarity: 0.10
+  hook: 0.23
+  interestingness: 0.21
+  information_value: 0.08
+  emotional_impact: 0.16
+  shareability: 0.16
+  clarity: 0.06
   standalone_context: 0.10
 
 subtitles:
