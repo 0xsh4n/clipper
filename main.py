@@ -82,7 +82,6 @@ def build_parser() -> argparse.ArgumentParser:
     output_group.add_argument(
         "--subtitle-position", choices=("bottom", "center", "top"), help="caption placement (default bottom)",
     )
-    output_group.add_argument("--no-smart-crop", action="store_true", help="always centre-crop the 9:16 version")
 
     model_group = parser.add_argument_group("models")
     model_group.add_argument("--model", metavar="NAME", help="Ollama model (default qwen3:4b)")
@@ -136,8 +135,6 @@ def overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         overrides["subtitles.enabled"] = False
     if args.no_burn_in:
         overrides["subtitles.burn_in"] = False
-    if args.no_smart_crop:
-        overrides["video.smart_crop"] = False
     if args.keep_temp:
         overrides["runtime.keep_temp_files"] = True
     if args.no_cache:

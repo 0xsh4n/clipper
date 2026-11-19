@@ -6,7 +6,7 @@
 ollama:
   base_url: http://localhost:11434
   model: qwen3:4b             # stronger clip reasoning; ollama pull qwen3:4b
-  timeout: 300                # seconds per request
+  timeout: 120                # seconds per request; timed-out generations fail without retrying
   temperature: 0.2            # low = consistent scoring
   num_ctx: 8192               # context window handed to the model
   max_retries: 3              # retries for transport errors and invalid JSON
@@ -72,8 +72,8 @@ video:
   preset: veryfast            # use medium for smaller files at slower encode speed
   audio_bitrate: 192k
   fps: null                   # null = keep the source frame rate
-  smart_crop: true            # face-aware 9:16 crop (needs opencv-python)
-  smart_crop_samples: 12      # frames sampled for subject detection
+  smart_crop: true            # legacy setting; 9:16 now keeps the full frame over blurred fill
+  smart_crop_samples: 12      # legacy setting; no sampling is needed for blurred fill
   loudness_normalize: true    # EBU R128 loudness pass (-16 LUFS)
 
 download:

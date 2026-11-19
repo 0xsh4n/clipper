@@ -25,7 +25,7 @@ DEFAULTS: Dict[str, Any] = {
     "ollama": {
         "base_url": "http://localhost:11434",
         "model": "qwen3:4b",
-        "timeout": 300,
+        "timeout": 120,
         "temperature": 0.2,
         "num_ctx": 8192,
         "max_retries": 3,
@@ -163,7 +163,7 @@ VALID_WHISPER_MODELS = (
 class OllamaConfig:
     base_url: str = "http://localhost:11434"
     model: str = "qwen3:4b"
-    timeout: int = 300
+    timeout: int = 120
     temperature: float = 0.2
     num_ctx: int = 8192
     max_retries: int = 3

@@ -3,7 +3,7 @@
 Local AI agent that takes a YouTube URL, finds the strongest ~30 second moment in
 the whole video, and renders captioned 16:9 and 9:16 versions into `output/`.
 
-All reasoning happens on your machine with **Ollama + Qwen 2.5**. No OpenAI,
+All reasoning happens on your machine with **Ollama + Qwen 3**. No OpenAI,
 Anthropic, Gemini or any other cloud LLM is used, and no API keys exist anywhere
 in the project.
 
@@ -23,7 +23,7 @@ YouTube URL
    -> Qwen 2.5 picks the final clip and explains why
    -> sentence-aware boundary snapping to ~30 s
    -> SRT / VTT / burned-in captions
-   -> 1920x1080 landscape + 1080x1920 subject-aware vertical crop
+   -> 1920x1080 landscape + 1080x1920 full-frame vertical with blurred fill
    -> output/<video>/clip_01/ with metadata.json and clip_analysis.json
 ```
 
@@ -229,9 +229,9 @@ All dependencies are ready:
   llm model     : qwen3:4b
 ```
 
-`opencv-python-headless` in `requirements.txt` is optional: it powers the
-face-aware 9:16 crop. Without it the vertical render falls back to a centre
-crop and logs that it did.
+`opencv-python-headless` in `requirements.txt` is optional. Vertical renders
+keep the full source frame and use a blurred fill background; they do not need
+face detection.
 
 ## 8. Configuration
 
@@ -345,7 +345,6 @@ python main.py URL --language en                   # skip language detection
 python main.py URL --no-subtitles                  # no captions at all
 python main.py URL --no-burn-in                    # .srt/.vtt only, clean video
 python main.py URL --font-size 60 --subtitle-position center
-python main.py URL --no-smart-crop                 # always centre-crop 9:16
 python main.py URL --keep-temp --debug             # keep intermediates, verbose
 python main.py URL --no-cache                      # redo download/transcript/analysis
 python main.py URL --json                          # machine-readable summary
@@ -616,18 +615,11 @@ video:
 Aliases accepted: `landscape`, `youtube`, `horizontal`, `vertical`, `shorts`,
 `reels`, `tiktok`, `both`.
 
-The 9:16 render never squashes the picture:
-
-1. sample frames from the chosen clip,
-2. detect faces (OpenCV) and compute a weighted subject centre,
-3. crop a 9:16 window around the subject, clamped inside the frame,
-4. fall back to a centre crop when nothing is detected or OpenCV is missing,
-5. scale to the target resolution with Lanczos,
-6. keep captions inside the safe area via `subtitles.margin_ratio`.
-
-A source that is already vertical or square is padded instead of cropped, and a
-vertical source rendered to 16:9 gets a blurred pillarbox background rather than
-black bars.
+The 9:16 render keeps the complete source image visible at its original aspect
+ratio, centred over an enlarged and blurred version of that image. This avoids
+cutting off speakers or objects at the left and right edges of landscape videos.
+Captions stay inside the safe area via `subtitles.margin_ratio`. The 16:9 render
+also uses a blurred background when its source has a different aspect ratio.
 
 ## 17. How clip selection works
 
@@ -689,7 +681,7 @@ ai-video-clipper/
 │   ├── llm_analyzer.py           Ollama client, JSON repair, prompt stages
 │   ├── clip_selector.py          timestamp validation + boundary snapping
 │   ├── subtitle_generator.py     SRT / VTT / styled ASS
-│   ├── video_processor.py        cutting, smart crop, rendering
+│   ├── video_processor.py        cutting, blurred vertical fill, rendering
 │   ├── metadata_generator.py     metadata.json / clip_analysis.json
 │   └── pipeline.py               orchestration + caching
 ├── prompts/

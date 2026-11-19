@@ -266,6 +266,7 @@ class OllamaClient:
         prompt: str,
         *,
         json_mode: bool = True,
+        think: Optional[bool] = None,
         temperature: Optional[float] = None,
         system: Optional[str] = None,
         max_tokens: Optional[int] = None,
@@ -283,6 +284,8 @@ class OllamaClient:
         }
         if json_mode:
             body["format"] = "json"
+        if think is not None:
+            body["think"] = think
         if system:
             body["system"] = system
         if max_tokens:
@@ -306,6 +309,7 @@ class OllamaClient:
         prompt: str,
         *,
         repair_prompt: Optional[str] = None,
+        think: Optional[bool] = None,
         temperature: Optional[float] = None,
         system: Optional[str] = None,
     ) -> Any:
@@ -320,6 +324,7 @@ class OllamaClient:
                 response = self.generate(
                     current_prompt,
                     json_mode=True,
+                    think=think,
                     temperature=temperature if attempt == 1 else 0.0,
                     system=system,
                 )
@@ -327,6 +332,8 @@ class OllamaClient:
             except LLMError as exc:
                 last_error = exc
                 log.warning("LLM JSON attempt %d/%d failed: %s", attempt, attempts, exc.message)
+                if "timed out" in exc.message.lower() or "timeout" in exc.message.lower():
+                    raise
                 if attempt < attempts:
                     current_prompt = (
                         (repair_prompt or prompt)
@@ -377,6 +384,12 @@ class OllamaClient:
                 if exc.code < 500:
                     raise last_error from exc
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                reason = getattr(exc, "reason", exc)
+                if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+                    raise LLMError(
+                        f"Ollama request timed out after {timeout or self.config.timeout}s.",
+                        "The server is reachable but generation is too slow. Try a smaller candidate batch or a lower-context model.",
+                    ) from exc
                 last_error = LLMError(f"Could not reach Ollama at {url}: {exc}")
             if attempt < attempts:
                 time.sleep(min(2.0 * attempt, 6.0))
@@ -484,7 +497,7 @@ class LLMAnalyzer:
             candidate_count=len(batch),
             candidates=json.dumps(payload, ensure_ascii=False, indent=2),
         )
-        data = self.client.generate_json(prompt)
+        data = self.client.generate_json(prompt, think=False)
         entries = self._as_entries(data, keys=("scores", "candidates", "results", "analysis"))
         by_id = {candidate.id: candidate for candidate in batch}
         matched = 0
@@ -574,7 +587,7 @@ class LLMAnalyzer:
         )
 
         try:
-            data = self.client.generate_json(prompt)
+            data = self.client.generate_json(prompt, think=True)
         except LLMError as exc:
             log.warning("Final selection failed (%s) - falling back to the top scored candidate", exc.message)
             return [self._fallback_selection(candidate) for candidate in ranked[:wanted]]
@@ -667,7 +680,7 @@ class LLMAnalyzer:
             transcript=clip_text,
         )
         try:
-            data = self.client.generate_json(prompt)
+            data = self.client.generate_json(prompt, think=False)
         except LLMError as exc:
             log.warning("Metadata generation failed (%s) - using transcript-derived fallbacks", exc.message)
             return self._fallback_metadata(clip_text, context)

@@ -4,7 +4,7 @@ Three jobs:
 
 1. cut the selected segment losslessly-ish into ``original_clip.mp4``;
 2. reframe it for each requested aspect ratio (16:9 letterbox-safe scaling,
-   9:16 *content aware* crop rather than a squash);
+   9:16 full-frame fit over a blurred fill background);
 3. burn the captions in and encode a social-ready H.264/AAC MP4.
 
 Only numbers that have already been validated reach the FFmpeg argument list,
@@ -276,36 +276,20 @@ class VideoProcessor:
         subject_center: float,
         crop_strategy: str,
     ) -> Tuple[List[str], Optional[float], str]:
-        """Crop to 9:16 around the subject rather than squashing the frame."""
+        """Fit the complete source frame over a blurred 9:16 background."""
 
-        filters: List[str] = []
-        center = clamp(float(subject_center), 0.0, 1.0)
+        if abs(source_aspect - target_aspect) <= 0.01:
+            return [f"scale={out_width}:{out_height}:flags=lanczos"], None, "scaled full frame"
 
-        if source_aspect > target_aspect + 1e-6:
-            crop_width = int(round(info.height * target_aspect))
-            crop_width = min(info.width, max(16, crop_width - (crop_width % 2)))
-            max_x = max(0, info.width - crop_width)
-            crop_x = int(round(center * info.width - crop_width / 2.0))
-            crop_x = int(clamp(crop_x, 0, max_x))
-            crop_x -= crop_x % 2
-            filters.append(f"crop={crop_width}:{info.height}:{crop_x}:0")
-            filters.append(f"scale={out_width}:{out_height}:flags=lanczos")
-            strategy = crop_strategy or "center"
-            log.info(
-                "9:16 crop: %dx%d at x=%d (%s)",
-                crop_width,
-                info.height,
-                crop_x,
-                strategy,
-            )
-            return filters, center, strategy
-
-        # Source is already as tall or taller than 9:16: fit and pad, never squash.
-        filters.append(
-            f"scale={out_width}:{out_height}:force_original_aspect_ratio=decrease:flags=lanczos"
-        )
-        filters.append(f"pad={out_width}:{out_height}:(ow-iw)/2:(oh-ih)/2:color=black")
-        return filters, center, "padded (source already vertical)"
+        filters = [
+            f"split=2[bg][fg];"
+            f"[bg]scale={out_width}:{out_height}:force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={out_width}:{out_height},boxblur=24:2[blurred];"
+            f"[fg]scale={out_width}:{out_height}:force_original_aspect_ratio=decrease:flags=lanczos[full];"
+            f"[blurred][full]overlay=(W-w)/2:(H-h)/2"
+        ]
+        log.info("9:16 render: keeping the full source frame over a blurred background")
+        return filters, None, "blurred background (full frame)"
 
     def _landscape_filters(
         self,

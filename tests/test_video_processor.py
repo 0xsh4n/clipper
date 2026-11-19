@@ -18,38 +18,36 @@ def info(width: int, height: int) -> MediaInfo:
     )
 
 
-def test_vertical_crop_is_a_crop_not_a_squash(config):
+def test_vertical_landscape_uses_full_frame_with_blurred_fill(config):
     filters, center, strategy = VideoProcessor(config)._build_filters(
         info(1920, 1080), 1080, 1920, "9:16", 0.5, "center"
     )
-    assert filters[0].startswith("crop=")
-    crop_w, crop_h, crop_x, _ = filters[0].split("=", 1)[1].split(":")
-    # 1080 * 9/16 = 607.5 -> 608 (even), centred.
-    assert int(crop_w) == 608 and int(crop_h) == 1080
-    assert int(crop_x) == (1920 - 608) // 2
-    assert "scale=1080:1920" in filters[1]
-    assert center == 0.5
+    graph = filters[0]
+    assert "split=2[bg][fg]" in graph
+    assert "boxblur=24:2" in graph and "overlay=" in graph
+    assert "force_original_aspect_ratio=decrease" in graph
+    assert "crop=1080:1920" in graph   # only the blurred background is cropped
+    assert center is None
+    assert strategy == "blurred background (full frame)"
 
 
-def test_vertical_crop_follows_the_subject(config):
+def test_vertical_full_frame_layout_does_not_depend_on_subject_center(config):
     processor = VideoProcessor(config)
-    left = processor._build_filters(info(1920, 1080), 1080, 1920, "9:16", 0.2, "face")[0][0]
-    right = processor._build_filters(info(1920, 1080), 1080, 1920, "9:16", 0.8, "face")[0][0]
-    left_x = int(left.split(":")[2])
-    right_x = int(right.split(":")[2])
-    assert left_x < right_x
-    assert left_x >= 0
-    assert right_x + 608 <= 1920          # never crops past the frame
-    assert left_x % 2 == 0 and right_x % 2 == 0
+    left = processor._build_filters(info(1920, 1080), 1080, 1920, "9:16", 0.2, "face")
+    right = processor._build_filters(info(1920, 1080), 1080, 1920, "9:16", 0.8, "face")
+    assert left[0] == right[0]
+    assert "[fg]scale=1080:1920:force_original_aspect_ratio=decrease" in left[0][0]
 
 
-def test_vertical_source_is_padded_not_cropped(config):
-    filters, _, strategy = VideoProcessor(config)._build_filters(
-        info(1080, 1920), 1080, 1920, "9:16", 0.5, ""
+def test_vertical_source_uses_blurred_fill_without_cropping_foreground(config):
+    filters, center, strategy = VideoProcessor(config)._build_filters(
+        info(1080, 1350), 1080, 1920, "9:16", 0.5, ""
     )
-    assert any(f.startswith("pad=") for f in filters)
-    assert not any(f.startswith("crop=") for f in filters)
-    assert "already vertical" in strategy
+    graph = filters[0]
+    assert "boxblur=24:2" in graph and "overlay=" in graph
+    assert "[fg]scale=1080:1920:force_original_aspect_ratio=decrease" in graph
+    assert center is None
+    assert strategy == "blurred background (full frame)"
 
 
 def test_landscape_matching_aspect_is_scaled(config):

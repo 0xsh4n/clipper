@@ -335,12 +335,10 @@ class Pipeline:
         else:
             log.info("Subtitles disabled - skipping caption generation")
 
-        # 9. smart crop detection (only needed for vertical output)
-        subject_center, crop_strategy = 0.5, "center"
+        # 9. keep every source frame visible; the renderer blurs behind it for 9:16.
+        subject_center, crop_strategy = 0.5, "blurred background"
         if "9:16" in self.config.video.formats:
-            subject_center, crop_strategy = self.video.detect_subject_center(
-                raw_clip, workspace / "frames" / f"clip_{clip.index:02d}", info=clip_info
-            )
+            log.info("Vertical output will preserve the full source frame with a blurred fill background")
 
         # 10. render every requested format
         renders: List[RenderResult] = []
